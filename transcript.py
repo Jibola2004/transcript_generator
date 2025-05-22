@@ -3,7 +3,7 @@ import csv
 class Student:
     student_details = {}
 
-    def __init__(self, id: int, firstname: str, lastname: str, dept_id: str):
+    def __init__(self, id: int, firstname: str, lastname: str, dept_id: int):
         self.id = id
         self.firstname = firstname
         self.lastname = lastname
@@ -24,7 +24,7 @@ class Student:
                             id=int(row['id']),
                             firstname=row['firstname'],
                             lastname=row['lastname'],
-                            dept_id=row['dept_id']
+                            dept_id=int(row['dept_id'])
                         )
                         cls.student_details[student.id] = student
                     except KeyError as e:
@@ -43,7 +43,7 @@ class Student:
 
 class Department:
     department_details={}
-    def __int__(self,dept_id:str,dept_name:str):
+    def __int__(self,dept_id:int,dept_name:str):
         self.dept_id=dept_id
         self.dept_name=dept_name
 
@@ -55,7 +55,7 @@ class Department:
                 for row in reader:
                     try:
                         department = cls(
-                            dept_id=row['dept_id'],
+                            dept_id=int(row['dept_id']),
                             dept_name=row['dept_name']
                         )
                         cls.department_details[department.dept_id]=department
