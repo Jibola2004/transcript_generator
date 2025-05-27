@@ -1,6 +1,6 @@
 import csv
 from typing import Dict, List, Optional, Tuple
-
+import pytest
 class Student:
     student_details: Dict[int, 'Student'] = {}
     
@@ -238,3 +238,116 @@ class Curriculum:
         except FileNotFoundError:
             print(f"File not found: {file_path}")
         return cls.Curriculum_details
+
+def test_department_loading():
+    # Test loading department data
+    depts = Department.from_csv("departments.csv")
+    assert len(depts) == 3
+    assert depts[389].dept_name == "Software Engineering"
+    assert depts[355].dept_name == "Computer Engineering"
+    assert depts[384].dept_name == "Aerospace Engineering"
+
+def test_invalid_department_data():
+    # Test with corrupted department data
+    with pytest.raises(ValueError):
+        Department.from_csv("corrupted_departments.csv")
+
+def test_curriculum_loading():
+    # Test loading curriculum data
+    Course.course_details = {
+        3570119: Course(3570119, "CS101", "Intro Course"),
+        3580105: Course(3580105, "CS102", "Data Structures")
+    }
+    curriculum = Curriculum.from_csv("curriculum.csv")
+    
+    assert len(curriculum) >= 6  # Based on sample data
+    assert curriculum[3570119].credit == 5
+    assert curriculum[3570119].prerequisite == [3570100]  # Has prerequisite
+    assert curriculum[3580105].prerequisite == []  # Null prerequisite
+
+def test_prerequisite_validation():
+    # Test with missing prerequisite course
+    Course.course_details = {3570119: Course(3570119, "CS101", "Intro Course")}
+    with pytest.raises(ValueError, match="Prerequisite 3570100 not found"):
+        Curriculum.from_csv("curriculum.csv")
+
+
+def test_student_course_operations():
+    # Setup test data
+    Course.course_details = {
+        3570119: Course(3570119, "CS101", "Intro Course"),
+        3580105: Course(3580105, "CS102", "Data Structures")
+    }
+    Curriculum.from_csv("curriculum.csv")
+    
+    student = Student(1, "John", "Doe", 389)  # Software Engineering student
+    student.load_course_list()
+    
+    # Test adding valid courses
+    student.add_course("Fall 2023", 3570119, "A")
+    student.add_course("Fall 2023", 3580105, "B+")
+    assert len(student.courses_taken["Fall 2023"]) == 2
+    
+    # Test GPA calculation
+    assert student.calculate_semester_gpa("Fall 2023") == pytest.approx(3.65, 0.01)
+    
+    # Test adding invalid course
+    with pytest.raises(ValueError, match="Course 999 not found"):
+        student.add_course("Fall 2023", 999, "A")
+
+def test_credit_calculation():
+    Course.course_details = {
+        3570119: Course(3570119, "CS101", "Intro Course"),
+        3580105: Course(3580105, "CS102", "Data Structures"),
+        3600107: Course(3600107, "CS103", "Algorithms")
+    }
+    Curriculum.from_csv("curriculum.csv")
+    
+    student = Student(2, "Jane", "Smith", 355)  # Computer Engineering student
+    student.load_course_list()
+    
+    student.add_course("Fall 2023", 3570119, "A")  # 5 credits
+    student.add_course("Spring 2024", 3580105, "B")  # 4 credits
+    student.add_course("Spring 2024", 3600107, "A-")  # 4 credits
+    
+    assert student.total_credit_hour_taken == 13  # 5 + 4 + 4
+
+
+def test_zero_credit_courses():
+    # Test with 0-credit courses (like seminars)
+    Course.course_details = {
+        3550100: Course(3550100, "SEM101", "Department Seminar"),
+        3890101: Course(3890101, "SEM102", "Research Seminar")
+    }
+    Curriculum.from_csv("curriculum.csv")
+    
+    student = Student(3, "Alex", "Johnson", 355)
+    student.load_course_list()
+    
+    student.add_course("Fall 2023", 3550100, "A")  # 0 credits
+    student.add_course("Fall 2023", 3890101, "A")  # 0 credits
+    
+    assert student.total_credit_hour_taken == 0
+    assert student.calculate_semester_gpa("Fall 2023") == 0.0  # No credit impact
+
+
+def test_prerequisite_enforcement():
+    # Setup courses with prerequisites
+    Course.course_details = {
+        3570100: Course(3570100, "CS100", "Pre-Intro Course"),
+        3570119: Course(3570119, "CS101", "Intro Course"),
+        3580105: Course(3580105, "CS102", "Data Structures")
+    }
+    Curriculum.from_csv("curriculum.csv")
+    
+    student = Student(4, "Sarah", "Lee", 389)
+    student.load_course_list()
+    
+    # Try to take course without prerequisite
+    with pytest.raises(ValueError, match="Prerequisite 3570100 not taken"):
+        student.add_course("Fall 2023", 3570119, "A")
+    
+    # Take prerequisite first
+    student.add_course("Summer 2023", 3570100, "A-")
+    student.add_course("Fall 2023", 3570119, "A")  # Should now work
+    assert len(student.courses_taken["Fall 2023"]) == 1
